@@ -1,0 +1,238 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>二维码生成</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" type="text/css" href="https://www.layuicdn.com/layui/css/layui.css" />
+    <!-- 让IE8/9支持媒体查询，从而兼容栅格 -->
+    <!--[if lt IE 9]>
+    <script src="https://cdn.staticfile.org/html5shiv/r29/html5.min.js"></script>
+    <script src="https://cdn.staticfile.org/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+<body style="background-color: ghostwhite;">
+    <div class="layui-tab layui-tab-brief" lay-filter="docDemoTabBrief">
+        <ul class="layui-tab-title">
+            <li class="layui-this">二维码生成</li>
+            <li>二维码识别</li>
+        </ul>
+        <div class="layui-tab-content" style="height: 100px;">
+            <div class="layui-tab-item layui-show">
+                <div class="layui-container" style="margin-top: 100px;">
+                    <form class="layui-form" lay-filter="qrcode-data">
+                        <div class="layui-row">
+                            <div class="layui-col-xs6">
+                                <textarea placeholder="请输入内容" class="layui-textarea" name="content" style="height: 250px;" lay-verify="required"></textarea>
+                                <button type="submit" class="layui-btn" style="margin-top: 20px;" lay-submit="" lay-filter="genQrcode">生成二维码</button>
+                            </div>
+                            <div class="layui-col-xs3" style="background-color: white;margin-left: 20px;display: flex;text-align:center;flex-direction: column;justify-content: center;align-items: center;">
+                                <div id="qrcode-container">
+
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="layui-tab-item">
+                <div class="layui-container" style="margin-top: 100px;">
+                    <form class="layui-form">
+                        <div class="layui-row">
+                            <div class="layui-col-xs6">
+                                <textarea id="decode-result" placeholder="解析结果" class="layui-textarea" name="content" style="height: 250px;"></textarea>
+                            </div>
+                            <div class="layui-col-xs3" style="background-color: white;margin-left: 20px;display: flex;flex-direction: column;justify-content: center;align-items: center;">
+                                <div id="uploadQRcode" style="cursor:pointer;width: 100%;height: 250px;font-size: 20px;color: gray;text-align:center;vertical-align: center;line-height: 250px;">
+                                    点击上传二维码
+
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+<script id="qrcode" type="text/html">
+    <div>
+        {{#   if(d.datauri === ''){  }}
+            <div style="width: 100%;height: 250px;font-size: 20px;color: gray;vertical-align: center;line-height: 250px;">
+                此处生成二维码
+            </div>
+        {{#  } else { }}
+            <img id="qrcodeimg" style="width: 90%;" src="{{d.datauri}}" />
+            <button type="button" class="layui-btn" style="margin-top: 20px;" lay-submit="" lay-filter="saveImg">保存图片</button>
+            <button type="button" id="uploadLogo" class="layui-btn" style="margin-top: 20px;">上传LOGO</button>
+            <div class="layui-form-item">
+                <label class="layui-form-label">LOGO形状</label>
+                <div class="layui-input-block">
+                    {{#   if(d.circle === false){  }}
+                        <input type="radio" name="circle" value="false" title="矩形" checked="true" lay-filter="shape">
+                        <input type="radio" name="circle" value="true" title="圆形" lay-filter="shape">
+                    {{#  } else { }}
+                        <input type="radio" name="circle" value="false" title="矩形" lay-filter="shape">
+                        <input type="radio" name="circle" value="true" title="圆形" checked="true" lay-filter="shape">
+                    {{#  } }}
+                </div>
+            </div>
+        {{#  } }}
+    </div>
+</script>
+</html>
+<script src="https://www.layuicdn.com/layui/layui.js"></script>
+<script>
+    layui.use(['form','laytpl','upload','element'], function(){
+        var form = layui.form,
+            upload = layui.upload,
+            laytpl = layui.laytpl,
+            $ = layui.jquery,
+            element = layui.element; //只有执行了这一步，部分表单元素才会自动修饰成功
+
+
+        var qrdata = { //数据
+            "datauri":"",
+            "circle":false
+        };
+        var getTpl = qrcode.innerHTML
+            ,view = document.getElementById('qrcode-container');
+        laytpl(getTpl).render(qrdata, function(html){
+            view.innerHTML = html;
+        });
+
+        var uploadLogo;
+
+        form.on('submit(genQrcode)', function(data){
+            layui.data('logofile', {
+                key: 'file'
+                ,value: false
+            });
+            $.ajax({
+                type:'POST',
+                url:'http://localhost:8080/qrcode/base64',
+                data:{
+                    content:data.field.content
+                },
+                dataType :'json',
+                success: function (res) {
+                    if(res.code == 200){
+                        qrdata.datauri = res.datauri;
+                        qrdata.circle = res.circle;
+                        var getTpl = qrcode.innerHTML
+                            ,view = document.getElementById('qrcode-container');
+                        laytpl(getTpl).render(qrdata, function(html){
+                            view.innerHTML = html;
+                        });
+                        form.render();
+                        //执行实例
+                        uploadLogo = upload.render({
+                            elem: '#uploadLogo' //绑定元素
+                            ,url: 'http://localhost:8080/qrcode/base64' //上传接口
+                            ,field:'logoFile'
+                            ,data:{
+                                content: function(){
+                                    var data = form.val("qrcode-data");
+                                    return data.content;
+                                },
+                                circle: function () {
+                                    var data = form.val("qrcode-data");
+                                    return data.circle;
+                                }
+                            }
+                            ,before: function(obj){
+                                //预读本地文件，如果是多文件，则会遍历。(不支持ie8/9)
+                                obj.preview(function(index, file, result){
+                                    layui.data('logofile', {
+                                        key: 'file'
+                                        ,value: true
+                                    });
+                                });
+                            }
+                            ,done: function(res){
+                                if(res.code == 200){
+                                    $('#qrcodeimg').attr("src",res.datauri);
+                                }
+                            }
+                            ,error: function(){
+                                //请求异常回调
+                            }
+                        });
+                    }
+                },
+                error :function (res) {
+
+                }
+            })
+            return false; //阻止表单跳转。如果需要表单跳转，去掉这段即可。
+        });
+
+        form.on('submit(saveImg)', function(data) {
+            // 通过选择器获取img元素
+            var img = document.querySelector('#qrcodeimg')
+            // 将图片的src属性作为URL地址
+            var url = img.src
+            var a = document.createElement('a')
+            var event = new MouseEvent('click')
+
+            a.download = randomNum(0,99999) || '下载图片名称'
+            a.href = url
+
+            a.dispatchEvent(event)
+        });
+
+        form.on('radio(shape)', function(data){
+            var haslogofile = layui.data('logofile').file;
+            if(haslogofile){
+                //更改logo形状
+                uploadLogo.reload({
+                    data:{
+                        circle:data.value,
+                        content: function(){
+                            var data = form.val("qrcode-data");
+                            return data.content;
+                        }
+                    }
+                });
+                uploadLogo.upload();
+            }
+        });
+
+        //生成从minNum到maxNum的随机数
+        function randomNum(minNum, maxNum) {
+            switch (arguments.length) {
+                case 1:
+                    return parseInt(Math.random() * minNum + 1, 10);
+                    break;
+                case 2:
+                    return parseInt(Math.random() * ( maxNum - minNum + 1 ) + minNum, 10);
+                    //或者 Math.floor(Math.random()*( maxNum - minNum + 1 ) + minNum );
+                    break;
+                default:
+                    return 0;
+                    break;
+            }
+        }
+
+        upload.render({
+            elem: '#uploadQRcode' //绑定元素
+            ,url: 'http://localhost:8080/qrcode/decode' //上传接口
+            ,before:function (obj) {
+                obj.preview(function(index, file, result){
+                    $('#uploadQRcode').html("<img style='width:90%;' src='"+result+"'/>");
+                });
+            }
+            ,done: function(res){
+                if(res.code == 200){
+                    $('#decode-result').val(res.result)
+
+                }
+            }
+            ,error: function(){
+                //请求异常回调
+            }
+        });
+    });
+</script>
